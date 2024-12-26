@@ -1,9 +1,73 @@
 #!/bin/bash
 # shellcheck disable=SC1091
 # shellcheck disable=SC2317
-source value.sh
-source installhub.sh
-check_root
+#source value.sh
+#source installhub.sh
+DOCKER_DIR="/opt"       # 本地 Docker 离线包目录路径
+DOCKER_VERSION="27.3.1" # 默认 Docker 版本
+DOCKER_File="docker-$DOCKER_VERSION.tgz"
+INSTALL_DIR="/usr/local/bin"  # Docker 安装目录
+#DOCKER_ROOT="/var/lib/docker" # Docker 数据目录
+#DOWNLOAD_URL="https://minio.sxxpqp.top/docker" # 下载 URL
+DOWNLOAD_URL="https://chfs.sxxpqp.top:8443/chfs/shared/docker" # 下载 URL
+check_architecture() {
+    arch=$(uname -m)
+    
+    case "$arch" in
+        x86_64)
+            echo "系统架构: 64 位 AMD (x86_64)"
+            DOWNLOAD_URL="https://chfs.sxxpqp.top:8443/chfs/shared/docker"
+            ;;
+        aarch64)
+            echo "系统架构: 64 位 ARM (aarch64)"
+            DOWNLOAD_URL="https://chfs.sxxpqp.top:8443/chfs/shared/docker/aarch64"
+            ;;
+        armv7l)
+            echo "系统架构: 32 位 ARM (armv7l)"
+            ;;
+        *)
+            echo "不支持的系统架构: $arch, 只支持 ARM 和 AMD 架构"
+            exit 1
+            ;;
+    esac
+}
+check_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "请使用 root 用户执行此脚本。"
+        exit 1
+    fi
+}
+check_command_success() {
+    command="$1" # 获取命令参数
+    echo "执行命令: $command"
+
+    # 执行命令并捕获输出（包括标准错误）
+    output=$($command 2>&1)
+
+    # 判断命令是否成功
+    if [ $? -eq 0 ]; then
+        echo "$output"
+        echo "$command 命令执行成功"
+        return 0
+    else
+        echo "$command 命令执行失败，错误信息如下："
+        echo "$output"
+        return 1
+    fi
+}
+
+
+is_command_available() {
+    command="$1"
+    if command -v "$command" >/dev/null 2>&1; then
+        echo "$command 可用"
+        return 0
+    else
+        echo "$command 不可用"
+        return 1
+    fi
+}
+
 
 install-docker-offline() {
     if [ "$(command -v docker)" ]; then
@@ -58,6 +122,7 @@ function choose_docker_version() {
         DOCKER_File="docker-$DOCKER_VERSION.tgz"
     fi
     if [ ! -f "$DOCKER_DIR/$DOCKER_File" ]; then
+
         echo "Version file not found in the local directory. Attempting to download..."
         download_file "$DOWNLOAD_URL/$DOCKER_File" "$DOCKER_DIR/$DOCKER_File"
     fi
@@ -172,6 +237,48 @@ function uninstall_docker() {
 
     echo "Docker and Docker Compose uninstalled successfully."
 }
+edit_docker_daemon() {
+    if [ -f "/etc/docker/daemon.json" ]; then
+        echo "File \"/etc/docker/daemon.json\" exists"
+
+        check_command_success "mv /etc/docker/daemon.json  /etc/docker/daemon.json.back"
+        if [ $? -eq 0 ]; then
+
+            is_command_available "curl"
+            if [ $? -eq 0 ]; then
+                culr -o /etc/docker/daemon.json https://chfs.sxxpqp.top:8443/chfs/shared/docker/daemon.json
+            else
+                is_command_available "wget"
+                if [ $? -eq 0 ]; then
+                    wget -O /etc/docker/daemon.json https://chfs.sxxpqp.top:8443/chfs/shared/docker/daemon.json
+                fi
+            fi
+
+            check_command_success "systemctl daemon-reload"
+            check_command_success "systemctl reload docker"
+            if [ $? -eq 0 ]; then
+                echo "配置daemon.json成功"
+            fi
+        fi
+    else
+        is_command_available "curl"
+        if [ $? -eq 0 ]; then
+            culr -o /etc/docker/daemon.json https://chfs.sxxpqp.top:8443/chfs/shared/docker/daemon.json
+        else
+            is_command_available "wget"
+            if [ $? -eq 0 ]; then
+                wget -O /etc/docker/daemon.json https://chfs.sxxpqp.top:8443/chfs/shared/docker/daemon.json
+            fi
+        fi
+
+        check_command_success "systemctl daemon-reload"
+        check_command_success "systemctl reload docker"
+        if [ $? -eq 0 ]; then
+            echo "配置daemon.json成功"
+        fi
+    fi
+
+}
 
 # 退出程序
 exit_program_menu() {
@@ -183,9 +290,10 @@ exit_program_menu() {
 install_docker_menu() {
     echo "-----------------"
     echo "进入 Docker 安装菜单:"
-    echo "1: 安装 Docker CE"
-    echo "2: 卸载 Docker"
-    echo "3: 启动helloworld"
+    echo "1: 安装 Docker CE..."
+    echo "2: 卸载 Docker..."
+    echo "3: 启动helloworld..."
+    echo "4: 配置daemon.json..."
     echo "b: 返回主菜单"
     echo "q: 退出"
     echo "-----------------"
@@ -202,6 +310,10 @@ install_docker_menu() {
     3)
         echo "启动helloworld"
         docker_run_helloworld
+        ;;
+    4)
+        echo "配置daemon.json..."
+        edit_docker_daemon
         ;;
     b) main_menu ;;
     q) exit_program_menu ;;
@@ -251,14 +363,36 @@ deploy_service_menu() {
     echo
     echo
 }
+dns_menu() {
+    if grep -iq "ubuntu" /etc/os-release; then
+       sed -i "1i nameserver 223.5.5.5" /etc/resolv.conf
+       if [ $? -eq 0 ]; then
+            echo "添加dns到resolv.conf成功"
 
+    
+        check_command_success "systemctl restart systemd-resolved"
+        check_command_success "systemctl enable systemd-resolved"
+
+        check_command_success 'mv /etc/resolv.conf /run/systemd/resolve/resolv.conf'
+        check_command_success 'ln -s /run/systemd/resolve/resolv.conf /etc/'
+        check_command_success "ping -c 4 jd.com"
+        if [ $? -eq 0 ]; then
+            echo "resolv.conf 添加DNS配置成功"
+
+        fi
+        else 
+         echo "添加dns到resolv.conf失败"
+        fi
+
+    fi
+}
 # 主菜单函数
 main_menu() {
     echo "-----------------"
     echo "请选择您要执行的操作:"
     echo "1: 安装 Docker"
     echo "2: 部署docker-compose服务"
-    echo "3: 安装驱动"
+    echo "3: 配置dns"
     echo "4: 安装其他工具"
     echo "q: 退出"
     echo "-----------------"
@@ -266,7 +400,7 @@ main_menu() {
     case "$choice" in
     1) install_docker_menu ;;
     2) deploy_service_menu ;;
-    3) install_drivers_menu ;;
+    3) dns_menu ;;
     4) install_other_tools_menu ;;
     q) exit_program_menu ;;
     *)
@@ -275,5 +409,9 @@ main_menu() {
         ;;
     esac
 }
+# 查看系统架构
+check_architecture
+# 是否为root
+check_root
 # 调用主菜单
 main_menu
