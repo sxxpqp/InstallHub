@@ -4,7 +4,7 @@
 # shellcheck disable=SC2154
 #source value.sh
 #source installhub.sh
-DOCKER_DIR="/opt"       # 本地 Docker 离线包目录路径
+DOCKER_DIR="/tmp"       # 本地 Docker 离线包目录路径
 DOCKER_VERSION="27.3.1" # 默认 Docker 版本
 DOCKER_File="docker-$DOCKER_VERSION.tgz"
 INSTALL_DIR="/usr/local/bin" # Docker 安装目录
