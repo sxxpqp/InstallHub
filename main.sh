@@ -1,34 +1,40 @@
 #!/bin/bash
 # shellcheck disable=SC1091
 # shellcheck disable=SC2317
+# shellcheck disable=SC2154
 #source value.sh
 #source installhub.sh
 DOCKER_DIR="/opt"       # 本地 Docker 离线包目录路径
 DOCKER_VERSION="27.3.1" # 默认 Docker 版本
 DOCKER_File="docker-$DOCKER_VERSION.tgz"
-INSTALL_DIR="/usr/local/bin"  # Docker 安装目录
+INSTALL_DIR="/usr/local/bin" # Docker 安装目录
 #DOCKER_ROOT="/var/lib/docker" # Docker 数据目录
 #DOWNLOAD_URL="https://minio.sxxpqp.top/docker" # 下载 URL
 DOWNLOAD_URL="https://chfs.sxxpqp.top:8443/chfs/shared/docker" # 下载 URL
+# 下载固件文件的 URL
+FIRMWARE_URL="https://chfs.sxxpqp.top:8443/chfs/shared/dirver/linux-firmware-20241017.tar.gz"
+FIRMWARE_FILE="linux-firmware-20241017.tar.gz"
+DOWNLOAD_DIR="/tmp/linux-firmware"
+
 check_architecture() {
     arch=$(uname -m)
-    
+
     case "$arch" in
-        x86_64)
-            echo "系统架构: 64 位 AMD (x86_64)"
-            DOWNLOAD_URL="https://chfs.sxxpqp.top:8443/chfs/shared/docker"
-            ;;
-        aarch64)
-            echo "系统架构: 64 位 ARM (aarch64)"
-            DOWNLOAD_URL="https://chfs.sxxpqp.top:8443/chfs/shared/docker/aarch64"
-            ;;
-        armv7l)
-            echo "系统架构: 32 位 ARM (armv7l)"
-            ;;
-        *)
-            echo "不支持的系统架构: $arch, 只支持 ARM 和 AMD 架构"
-            exit 1
-            ;;
+    x86_64)
+        echo "系统架构: 64 位 AMD (x86_64)"
+        DOWNLOAD_URL="https://chfs.sxxpqp.top:8443/chfs/shared/docker"
+        ;;
+    aarch64)
+        echo "系统架构: 64 位 ARM (aarch64)"
+        DOWNLOAD_URL="https://chfs.sxxpqp.top:8443/chfs/shared/docker/aarch64"
+        ;;
+    armv7l)
+        echo "系统架构: 32 位 ARM (armv7l)"
+        ;;
+    *)
+        echo "不支持的系统架构: $arch, 只支持 ARM 和 AMD 架构"
+        exit 1
+        ;;
     esac
 }
 check_root() {
@@ -56,7 +62,6 @@ check_command_success() {
     fi
 }
 
-
 is_command_available() {
     command="$1"
     if command -v "$command" >/dev/null 2>&1; then
@@ -67,7 +72,6 @@ is_command_available() {
         return 1
     fi
 }
-
 
 install-docker-offline() {
     if [ "$(command -v docker)" ]; then
@@ -363,28 +367,120 @@ deploy_service_menu() {
     echo
     echo
 }
+//dns 客户端配置
 dns_menu() {
     if grep -iq "ubuntu" /etc/os-release; then
-       sed -i "1i nameserver 223.5.5.5" /etc/resolv.conf
-       if [ $? -eq 0 ]; then
+        #    sed -i "1i nameserver 223.5.5.5" /etc/resolv.conf
+        vi /etc/resolv.conf
+        if [ $? -eq 0 ]; then
             echo "添加dns到resolv.conf成功"
 
-    
-        check_command_success "systemctl restart systemd-resolved"
-        check_command_success "systemctl enable systemd-resolved"
+            check_command_success "systemctl restart systemd-resolved"
+            check_command_success "systemctl enable systemd-resolved"
 
-        check_command_success 'mv /etc/resolv.conf /run/systemd/resolve/resolv.conf'
-        check_command_success 'ln -s /run/systemd/resolve/resolv.conf /etc/'
-        check_command_success "ping -c 4 jd.com"
-        if [ $? -eq 0 ]; then
-            echo "resolv.conf 添加DNS配置成功"
+            check_command_success 'mv /etc/resolv.conf /run/systemd/resolve/resolv.conf'
+            check_command_success 'ln -s /run/systemd/resolve/resolv.conf /etc/'
+            check_command_success "ping -c 4 jd.com"
+            if [ $? -eq 0 ]; then
+                echo "resolv.conf 添加DNS配置成功"
 
-        fi
-        else 
-         echo "添加dns到resolv.conf失败"
+            fi
+        else
+            echo "添加dns到resolv.conf失败"
         fi
 
     fi
+}
+ubuntu-update-kernal() {
+    ehco "开始更新内核"
+
+}
+ubuntu_fireware_downlaod_edit() {
+
+    cd "$DOWNLOAD_DIR" || {
+        echo "无法进入下载目录"
+        exit 1
+    }
+
+    # 下载固件文件
+    echo "正在下载固件文件..."
+    wget --no-check-certificate "$FIRMWARE_URL" -O "$FIRMWARE_FILE"
+    if [ $? -ne 0 ]; then
+        curl -o "$FIRMWARE_FILE" "$FIRMWARE_URL"
+    fi
+
+    echo "下载完成：$FIRMWARE_FILE"
+
+    # 解压固件文件
+    echo "正在解压固件文件..."
+    tar -xvzf "$FIRMWARE_FILE" -C "$DOWNLOAD_DIR"
+    if [ $? -ne 0 ]; then
+        echo "解压失败。"
+        exit 1
+    fi
+
+    # 创建 /lib/firmware/updates/ 目录（如果不存在）
+    if [ ! -d /lib/firmware/updates/ ]; then
+        mkdir -p /lib/firmware/updates/
+        echo "已创建 /lib/firmware/updates/ 目录"
+    fi
+
+    # 移动固件文件到 /lib/firmware/updates/
+    echo "正在移动固件文件到 /lib/firmware/updates/ ..."
+    sudo mv "$DOWNLOAD_DIR"/* /lib/firmware/updates/
+    echo "所有固件文件已移动到 /lib/firmware/updates/"
+
+    # 更新 initramfs
+    echo "正在更新 initramfs..."
+    sudo update-initramfs -u
+    echo "initramfs 已更新"
+
+    # 清理下载的临时文件
+    rm -rf "$DOWNLOAD_DIR"
+    echo "清理完成"
+    echo "操作完成，请重启系统以应用新的固件文件"
+}
+ubuntu-update-firmware() {
+
+    # 创建下载目录
+    if [ -f "$DOWNLOAD_DIR" ]; then
+        echo "File \"$DOWNLOAD_DIR\" exists"
+        ubuntu_fireware_downlaod_edit
+    else
+        mkdir -p "$DOWNLOAD_DIR"
+        ubuntu_fireware_downlaod_edit
+    fi
+}
+install_other_tools_menu() {
+    echo "-----------------"
+    echo "请选择您要执行的操作:"
+    echo "1: ubuntu升级内核到5.19"
+    echo "2: Firmware固件更新"
+    echo "3: 配置XXXXXXXX"
+    echo "b: 返回主菜单"
+    echo "q: 退出"
+    echo "-----------------"
+    read -p "请输入您的选择: " choice
+    case "$choice" in
+    1)
+        echo "ubuntu升级内核到5.19..."
+        ubuntu-update-kernal
+        ;;
+    2)
+        echo "Firmware固件更新..."
+        ubuntu-update-firmware
+        ;;
+    3)
+        echo "nginx安装||卸载"
+        xxxx
+        ;;
+    b) main_menu ;;
+    q) exit_program_menu ;;
+    *)
+        echo "无效选择，请重新选择。"
+        install_other_tools_menu
+        ;;
+    esac
 }
 # 主菜单函数
 main_menu() {
@@ -409,6 +505,7 @@ main_menu() {
         ;;
     esac
 }
+
 # 查看系统架构
 check_architecture
 # 是否为root
