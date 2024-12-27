@@ -15,7 +15,8 @@ DOWNLOAD_URL="https://chfs.sxxpqp.top:8443/chfs/shared/docker" # 下载 URL
 FIRMWARE_URL="https://chfs.sxxpqp.top:8443/chfs/shared/dirver/linux-firmware-20241017.tar.gz"
 FIRMWARE_FILE="linux-firmware-20241017.tar.gz"
 DOWNLOAD_DIR="/tmp/linux-firmware"
-
+choice_1panel=${choice_1panel:-/opt/1panel}
+choice_1panel_file="${choice_1panel}/docker-compose.yml"
 check_architecture() {
     arch=$(uname -m)
 
@@ -331,6 +332,7 @@ install_docker_menu() {
     echo
     echo
 }
+
 # 部署docker-compose服务应用
 deploy_service_menu() {
     echo "-----------------"
@@ -338,6 +340,7 @@ deploy_service_menu() {
     echo "1: mysql安装||卸载"
     echo "2: redis安装||卸载"
     echo "3: nginx安装||卸载"
+    echo "4: 1panel安装||卸载"
     echo "b: 返回主菜单"
     echo "q: 退出"
     echo "-----------------"
@@ -355,6 +358,10 @@ deploy_service_menu() {
         echo "nginx安装||卸载"
         nginx-docker-compose-deploy
         ;;
+    4)
+        echo "1panel安装||卸载"
+        dc-1panel-deploy-menu
+        ;;
     b) main_menu ;;
     q) exit_program_menu ;;
     *)
@@ -367,7 +374,70 @@ deploy_service_menu() {
     echo
     echo
 }
-//dns 客户端配置
+
+dc-1panel-deploy-menu() {
+    echo "-----------------"
+    echo "1panel服务菜单:"
+    echo "1: 1panel部署"
+    echo "2: 1panel卸载"
+    echo "b: 返回主菜单"
+    echo "q: 退出"
+    echo "-----------------"
+    read -p "请输入您的选择: " choice
+    case "$choice" in
+    1)
+        echo "1panel安装"
+        dc-1panel-deploy
+        ;;
+    2)
+        echo "1panel卸载"
+        dc-1panel-uninstall
+        ;;
+    b) deploy_service_menu ;;
+    q) exit_program_menu ;;
+    *)
+        echo "无效选择，请重新选择。"
+        dc-1panel-deploy-menu
+        ;;
+    esac
+}
+
+
+dc-1panel-deploy() {
+    read -p "请输入您的选择安装1panel目录 默认为/opt/1panel:" choice_1panel
+    export choice_1panel=${choice_1panel:-/opt/1panel}
+    echo $choice_1panel
+    if [ ! -d "$choice_1panel" ]; then
+        mkdir "$choice_1panel"
+    fi
+    export choice_1panel_file="${choice_1panel}/docker-compose.yml"
+    if [ ! -f "$choice_1panel_file" ]; then
+
+        is_command_available "curl"
+        if [ $? -eq 0 ]; then
+            culr -o $choice_1panel_file https://chfs.sxxpqp.top:8443/chfs/shared/docker/docker-compose/1panel/docker-compose.yml
+        else
+            is_command_available "wget"
+            if [ $? -eq 0 ]; then
+                wget -O $choice_1panel_file https://chfs.sxxpqp.top:8443/chfs/shared/docker/docker-compose/1panel/docker-compose.yml
+            fi
+        fi
+        # export choice=${choice:-/opt/1panel}
+        docker compose -f $choice_1panel_file up -d
+    fi
+}
+
+dc-1panel-uninstall(){
+    read -p "请输入您的选择安装1panel目录 默认为/opt/1panel:" choice_1panel
+    export choice_1panel=${choice_1panel:-/opt/1panel}
+    export choice_1panel_file="${choice_1panel}/docker-compose.yml"
+    if [ -f "$choice_1panel_file" ]; then
+     docker compose -f $choice_1panel_file down
+    rm -f $choice_1panel_file
+    fi
+    echo "1panel 卸载完成"
+}
+#dns 客户端配置
 dns_menu() {
     if grep -iq "ubuntu" /etc/os-release; then
         #    sed -i "1i nameserver 223.5.5.5" /etc/resolv.conf
