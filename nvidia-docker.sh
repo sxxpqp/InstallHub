@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the version
-VERSION="1.12.0-1"
+VERSION="1.13.0-1"
 
 # Define the paths to the .deb packages using the version variable
 LIB_NVIDIA_CONTAINER_TOOLS="libnvidia-container-tools_${VERSION}_amd64.deb"
@@ -9,7 +9,7 @@ LIB_NVIDIA_CONTAINER="libnvidia-container1_${VERSION}_amd64.deb"
 NVIDIA_CONTAINER_RUNTIME="nvidia-container-runtime_3.12.0-1_all.deb"
 NVIDIA_CONTAINER_TOOLKIT_BASE="nvidia-container-toolkit-base_${VERSION}_amd64.deb"
 NVIDIA_CONTAINER_TOOLKIT="nvidia-container-toolkit_${VERSION}_amd64.deb"
-NVIDIA_DOCKER2="nvidia-docker2_2.12.0-1_all.deb"
+NVIDIA_DOCKER2="nvidia-docker2_2.13.0-1_all.deb"
 
 NVIDIA_DOCKER_URL="https://mirror.cs.uchicago.edu/nvidia-docker/libnvidia-container/stable/ubuntu20.04/amd64/"
 
@@ -30,3 +30,6 @@ echo "NVIDIA_CONTAINER部署完成呀"
 
 # Optional: Ensure dependencies are resolved after installation
 # apt-get install -f
+
+
+#
