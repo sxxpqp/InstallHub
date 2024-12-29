@@ -11,12 +11,14 @@ INSTALL_DIR="/usr/local/bin" # Docker 安装目录
 #DOCKER_ROOT="/var/lib/docker" # Docker 数据目录
 #DOWNLOAD_URL="https://minio.sxxpqp.top/docker" # 下载 URL
 DOWNLOAD_URL="https://chfs.sxxpqp.top:8443/chfs/shared/docker" # 下载 URL
+download_docker_daemon_url=https://chfs.sxxpqp.top:8443/chfs/shared/docker/daemon.json
 # 下载固件文件的 URL
 FIRMWARE_URL="https://chfs.sxxpqp.top:8443/chfs/shared/dirver/linux-firmware-20241017.tar.gz"
 FIRMWARE_FILE="linux-firmware-20241017.tar.gz"
 DOWNLOAD_DIR="/tmp/linux-firmware"
 choice_1panel=${choice_1panel:-/opt/1panel}
 choice_1panel_file="${choice_1panel}/docker-compose.yml"
+download_choice_1pane1_file_url=https://chfs.sxxpqp.top:8443/chfs/shared/docker/docker-compose/1panel/docker-compose.yml
 check_architecture() {
     arch=$(uname -m)
 
@@ -251,11 +253,11 @@ edit_docker_daemon() {
 
             is_command_available "curl"
             if [ $? -eq 0 ]; then
-                culr -o /etc/docker/daemon.json https://chfs.sxxpqp.top:8443/chfs/shared/docker/daemon.json
+                culr -o /etc/docker/daemon.json $download_docker_daemon_url
             else
                 is_command_available "wget"
                 if [ $? -eq 0 ]; then
-                    wget -O /etc/docker/daemon.json https://chfs.sxxpqp.top:8443/chfs/shared/docker/daemon.json
+                    wget -O /etc/docker/daemon.json $download_docker_daemon_url
                 fi
             fi
 
@@ -268,11 +270,11 @@ edit_docker_daemon() {
     else
         is_command_available "curl"
         if [ $? -eq 0 ]; then
-            culr -o /etc/docker/daemon.json https://chfs.sxxpqp.top:8443/chfs/shared/docker/daemon.json
+            culr -o /etc/docker/daemon.json $download_docker_daemon_url
         else
             is_command_available "wget"
             if [ $? -eq 0 ]; then
-                wget -O /etc/docker/daemon.json https://chfs.sxxpqp.top:8443/chfs/shared/docker/daemon.json
+                wget -O /etc/docker/daemon.json $download_docker_daemon_url
             fi
         fi
 
@@ -415,16 +417,18 @@ dc-1panel-deploy() {
 
         is_command_available "curl"
         if [ $? -eq 0 ]; then
-            culr -o $choice_1panel_file https://chfs.sxxpqp.top:8443/chfs/shared/docker/docker-compose/1panel/docker-compose.yml
+            culr -o $choice_1panel_file $download_choice_1pane1_file_url
         else
             is_command_available "wget"
             if [ $? -eq 0 ]; then
-                wget -O $choice_1panel_file https://chfs.sxxpqp.top:8443/chfs/shared/docker/docker-compose/1panel/docker-compose.yml
+                wget -O $choice_1panel_file $download_choice_1pane1_file_url
             fi
         fi
         # export choice=${choice:-/opt/1panel}
-        docker compose -f $choice_1panel_file up -d
+        
     fi
+    docker compose -f $choice_1panel_file up -d
+    echo "1panel 安装完成"
 }
 
 dc-1panel-uninstall(){
